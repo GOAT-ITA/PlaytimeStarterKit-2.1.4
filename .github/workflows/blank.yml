@@ -1,0 +1,60 @@
+name: Build iOS
+
+on:
+push:
+branches: [ main ]
+
+jobs:
+build:
+runs-on: macos-latest
+
+```
+steps:
+  - name: Checkout repository
+    uses: actions/checkout@v4
+
+  - name: Install Godot
+    run: |
+      wget https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_osx.universal.zip
+      unzip Godot_v3.5.3-stable_osx.universal.zip
+      mv Godot.app /Applications/Godot.app
+      sudo ln -s /Applications/Godot.app/Contents/MacOS/Godot /usr/local/bin/godot
+      godot --version
+
+  - name: Install export templates
+    run: |
+      mkdir -p ~/Library/Application\ Support/Godot/templates/3.5.3.stable
+      wget https://github.com/godotengine/godot/releases/download/3.5.3-stable/Godot_v3.5.3-stable_export_templates.tpz
+      unzip Godot_v3.5.3-stable_export_templates.tpz
+      mv templates/* ~/Library/Application\ Support/Godot/templates/3.5.3.stable/
+
+  - name: Create build folder
+    run: mkdir build
+
+  - name: Export Xcode project
+    run: |
+      godot --headless --export "iOS" build/game.xcodeproj
+
+  - name: Build project with Xcode
+    run: |
+      xcodebuild \
+      -project build/game.xcodeproj \
+      -scheme game \
+      -configuration Release \
+      CODE_SIGN_IDENTITY="" \
+      CODE_SIGNING_REQUIRED=NO \
+      CODE_SIGNING_ALLOWED=NO \
+      build
+
+  - name: Create IPA
+    run: |
+      mkdir Payload
+      cp -r build/*.app Payload/
+      zip -r game.ipa Payload
+
+  - name: Upload IPA
+    uses: actions/upload-artifact@v4
+    with:
+      name: ios-build
+      path: game.ipa
+```
